@@ -29,7 +29,7 @@ use crate::std::node_metadata::{EventArg, Metadata, MetadataError};
 use crate::std::AccountId;
 use crate::{Balance, BlockNumber, Hash, Moment};
 
-/// Event for the System module.
+/// Event for the System pallet.
 #[derive(Clone, Debug, Decode)]
 pub enum SystemEvent {
     /// An extrinsic completed successfully.
@@ -48,8 +48,8 @@ pub enum RuntimeEvent {
 /// Raw bytes for an Event
 #[derive(Debug)]
 pub struct RawEvent {
-    /// The name of the module from whence the Event originated
-    pub module: String,
+    /// The name of the pallet from whence the Event originated
+    pub pallet: String,
     /// The name of the Event
     pub variant: String,
     /// The raw Event data
@@ -64,8 +64,8 @@ pub enum EventsError {
     Metadata(#[from] MetadataError),
     #[error("Type Sizes Unavailable: {0:?}")]
     TypeSizeUnavailable(String),
-    #[error("Module error: {0:?}")]
-    ModuleError(String),
+    #[error("Pallet error: {0:?}")]
+    PalletError(String),
 }
 
 #[derive(Clone)]
@@ -127,17 +127,17 @@ impl EventsDecoder {
 
     pub fn check_missing_type_sizes(&self) {
         let mut missing = HashSet::new();
-        for module in self.metadata.modules_with_events() {
-            for event in module.events() {
+        for pallet in self.metadata.pallets_with_events() {
+            for event in pallet.events() {
                 for arg in event.arguments() {
                     for primitive in arg.primitives() {
-                        if module.name() != "System"
+                        if pallet.name() != "System"
                             && !self.type_sizes.contains_key(&primitive)
                             && !primitive.contains("PhantomData")
                         {
                             missing.insert(format!(
                                 "{}::{}::{}",
-                                module.name(),
+                                pallet.name(),
                                 event.name,
                                 primitive
                             ));
@@ -202,10 +202,10 @@ impl EventsDecoder {
             // decode EventRecord
             log::debug!("Decoding phase: {:?}", input);
             let phase = Phase::decode(input)?;
-            let module_variant = input.read_byte()?;
+            let pallet_variant = input.read_byte()?;
 
-            let module = self.metadata.module_with_events(module_variant)?;
-            let event = if module.name() == "System" {
+            let pallet = self.metadata.pallet_with_events(pallet_variant)?;
+            let event = if pallet.name() == "System" {
                 log::debug!("Decoding system event, intput: {:?}", input);
                 let system_event = SystemEvent::decode(input)?;
                 log::debug!("Decoding successful, system_event: {:?}", system_event);
@@ -213,11 +213,11 @@ impl EventsDecoder {
                     SystemEvent::ExtrinsicSuccess(_info) => RuntimeEvent::System(system_event),
                     SystemEvent::ExtrinsicFailed(dispatch_error, _info) => match dispatch_error {
                         DispatchError::Module { index, error, .. } => {
-                            let module = self.metadata.module_with_errors(index)?;
-                            log::debug!("Found module events {:?}", module.name());
-                            let error_metadata = module.error(error)?;
-                            log::debug!("received error '{}::{}'", module.name(), error_metadata);
-                            return Err(EventsError::ModuleError(error_metadata.to_owned()));
+                            let pallet = self.metadata.pallet_with_errors(index)?;
+                            log::debug!("Found pallet events {:?}", pallet.name());
+                            let error_metadata = pallet.error(error)?;
+                            log::debug!("received error '{}::{}'", pallet.name(), error_metadata);
+                            return Err(EventsError::PalletError(error_metadata.to_owned()));
                         }
                         _ => {
                             log::debug!("Ignoring unsupported ExtrinsicFailed event");
@@ -227,10 +227,10 @@ impl EventsDecoder {
                 }
             } else {
                 let event_variant = input.read_byte()?;
-                let event_metadata = module.event(event_variant)?;
+                let event_metadata = pallet.event(event_variant)?;
                 log::debug!(
                     "decoding event '{}::{}'",
-                    module.name(),
+                    pallet.name(),
                     event_metadata.name
                 );
 
@@ -239,13 +239,13 @@ impl EventsDecoder {
 
                 log::debug!(
                     "received event '{}::{}', raw bytes: {}",
-                    module.name(),
+                    pallet.name(),
                     event_metadata.name,
                     hex::encode(&event_data),
                 );
 
                 RuntimeEvent::Raw(RawEvent {
-                    module: module.name().to_string(),
+                    pallet: pallet.name().to_string(),
                     variant: event_metadata.name.clone(),
                     data: event_data,
                 })

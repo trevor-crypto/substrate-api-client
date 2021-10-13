@@ -26,7 +26,8 @@ sp-runtime = { version = "4.0.0-dev", default-features = false, git = "https://g
 support = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", package = "frame-support", branch = "master" }
 sp-std = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "master" }
 # new parity repository
-metadata = { version = "14.0.0", default-features = false, git = "https://github.com/paritytech/frame-metadata.git", branch = "main", package = "frame-metadata", features = ["v13"] }
+metadata = { version = "14.0.0", default-features = false, git = "https://github.com/paritytech/frame-metadata.git", branch = "main", package = "frame-metadata", features = ["v14"] }
+scale-info = { version = "1.0", default-features = false }
 # need to add this for the app_crypto macro
 sp-application-crypto = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "master", features = ["full_crypto"] }
 
@@ -36,7 +37,7 @@ env_logger = "0.9"
 node-template-runtime = { git = "https://github.com/scs/substrate-api-client-test-node", branch = "master" }
 keyring = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "master", package = "sp-keyring" }
 clap = { version = "2.33", features = ["yaml"] }
-
+ureq = { version = "2.2", features = ["json"] }
 
 [features]
 default = ["std", "ws-client"]
@@ -58,7 +59,8 @@ std = [
 	"primitive-types",
 	"thiserror",
 	"sp-rpc",
-	"transaction-payment/std"
+	"transaction-payment/std",
+	"scale-info/std"
 ]
 ws-client = ["ws"]
 staking-xt = ["std", "staking"]

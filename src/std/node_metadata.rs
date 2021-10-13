@@ -20,10 +20,10 @@ use codec::{Decode, Encode};
 
 use log::*;
 use metadata::{
-    decode_different::DecodeDifferent,
-    v13::{StorageEntryModifier, StorageEntryType, StorageHasher, META_RESERVED},
-    RuntimeMetadata, RuntimeMetadataPrefixed,
+    RuntimeMetadata, RuntimeMetadataPrefixed, StorageEntryMetadata, StorageEntryModifier,
+    StorageEntryType, StorageHasher, META_RESERVED,
 };
+use scale_info::form::{Form, PortableForm};
 use serde::ser::Serialize;
 use sp_core::storage::StorageKey;
 
@@ -31,10 +31,10 @@ use sp_core::storage::StorageKey;
 pub enum MetadataError {
     #[error("Error converting substrate metadata: {0}")]
     Conversion(#[from] ConversionError),
-    #[error("Module not found")]
-    ModuleNotFound(String),
-    #[error("Module with events not found")]
-    ModuleWithEventsNotFound(u8),
+    #[error("Pallet not found")]
+    PalletNotFound(String),
+    #[error("Pallet with events not found")]
+    PalletWithEventsNotFound(u8),
     #[error("Call not found")]
     CallNotFound(&'static str),
     #[error("Event not found")]
@@ -45,152 +45,155 @@ pub enum MetadataError {
     StorageTypeError,
     #[error("Map value type error")]
     MapValueTypeError,
-    #[error("Module with errors not found")]
-    ModuleWithErrorsNotFound(u8),
+    #[error("Pallet with errors not found")]
+    PalletWithErrorsNotFound(u8),
     #[error("Error not found")]
     ErrorNotFound(u8),
-    #[error("Module with constants not found")]
-    ModuleWithConstantsNotFound(u8),
+    #[error("Pallet with constants not found")]
+    PalletWithConstantsNotFound(u8),
     #[error("Constant not found")]
     ConstantNotFound(String),
 }
 
 #[derive(Clone, Debug)]
 pub struct Metadata {
-    modules: HashMap<String, ModuleMetadata>,
-    modules_with_calls: HashMap<String, ModuleWithCalls>,
-    modules_with_events: HashMap<String, ModuleWithEvents>,
-    modules_with_errors: HashMap<String, ModuleWithErrors>,
-    modules_with_constants: HashMap<String, ModuleWithConstants>,
+    pallets: HashMap<String, PalletMetadata>,
+    pallets_with_calls: HashMap<String, PalletWithCalls>,
+    pallets_with_events: HashMap<String, PalletWithEvents>,
+    pallets_with_errors: HashMap<String, PalletWithErrors>,
+    pallets_with_constants: HashMap<String, PalletWithConstants>,
 }
 
 impl Metadata {
-    pub fn module<S>(&self, name: S) -> Result<&ModuleMetadata, MetadataError>
+    pub fn pallet<S>(&self, name: S) -> Result<&PalletMetadata, MetadataError>
     where
         S: ToString,
     {
         let name = name.to_string();
-        self.modules
+        self.pallets
             .get(&name)
-            .ok_or(MetadataError::ModuleNotFound(name))
+            .ok_or(MetadataError::PalletNotFound(name))
     }
 
-    pub fn modules_with_calls(&self) -> impl Iterator<Item = &ModuleWithCalls> {
-        self.modules_with_calls.values()
+    pub fn pallets_with_calls(&self) -> impl Iterator<Item = &PalletWithCalls> {
+        self.pallets_with_calls.values()
     }
 
-    pub fn module_with_calls<S>(&self, name: S) -> Result<&ModuleWithCalls, MetadataError>
+    pub fn pallet_with_calls<S>(&self, name: S) -> Result<&PalletWithCalls, MetadataError>
     where
         S: ToString,
     {
         let name = name.to_string();
-        self.modules_with_calls
+        self.pallets_with_calls
             .get(&name)
-            .ok_or(MetadataError::ModuleNotFound(name))
+            .ok_or(MetadataError::PalletNotFound(name))
     }
 
-    pub fn modules_with_events(&self) -> impl Iterator<Item = &ModuleWithEvents> {
-        self.modules_with_events.values()
+    pub fn pallets_with_events(&self) -> impl Iterator<Item = &PalletWithEvents> {
+        self.pallets_with_events.values()
     }
 
-    pub fn module_with_events_by_name<S>(&self, name: S) -> Result<&ModuleWithEvents, MetadataError>
-    where
-        S: ToString,
-    {
-        let name = name.to_string();
-        self.modules_with_events
-            .get(&name)
-            .ok_or(MetadataError::ModuleNotFound(name))
-    }
-
-    pub fn module_with_events(&self, module_index: u8) -> Result<&ModuleWithEvents, MetadataError> {
-        self.modules_with_events
-            .values()
-            .find(|&module| module.index == module_index)
-            .ok_or(MetadataError::ModuleWithEventsNotFound(module_index))
-    }
-
-    pub fn modules_with_errors(&self) -> impl Iterator<Item = &ModuleWithErrors> {
-        self.modules_with_errors.values()
-    }
-
-    pub fn module_with_errors_by_name<S>(&self, name: S) -> Result<&ModuleWithErrors, MetadataError>
-    where
-        S: ToString,
-    {
-        let name = name.to_string();
-        self.modules_with_errors
-            .get(&name)
-            .ok_or(MetadataError::ModuleNotFound(name))
-    }
-
-    pub fn module_with_errors(&self, module_index: u8) -> Result<&ModuleWithErrors, MetadataError> {
-        self.modules_with_errors
-            .values()
-            .find(|&module| module.index == module_index)
-            .ok_or(MetadataError::ModuleWithErrorsNotFound(module_index))
-    }
-
-    pub fn modules_with_constants(&self) -> impl Iterator<Item = &ModuleWithConstants> {
-        self.modules_with_constants.values()
-    }
-
-    pub fn module_with_constants_by_name<S>(
+    pub fn pallets_with_events_by_name<S>(
         &self,
         name: S,
-    ) -> Result<&ModuleWithConstants, MetadataError>
+    ) -> Result<&PalletWithEvents, MetadataError>
     where
         S: ToString,
     {
         let name = name.to_string();
-        self.modules_with_constants
+        self.pallets_with_events
             .get(&name)
-            .ok_or(MetadataError::ModuleNotFound(name))
+            .ok_or(MetadataError::PalletNotFound(name))
     }
 
-    pub fn module_with_constants(
-        &self,
-        module_index: u8,
-    ) -> Result<&ModuleWithConstants, MetadataError> {
-        self.modules_with_constants
+    pub fn pallet_with_events(&self, pallet_index: u8) -> Result<&PalletWithEvents, MetadataError> {
+        self.pallets_with_events
             .values()
-            .find(|&module| module.index == module_index)
-            .ok_or(MetadataError::ModuleWithConstantsNotFound(module_index))
+            .find(|&pallet| pallet.index == pallet_index)
+            .ok_or(MetadataError::PalletWithEventsNotFound(pallet_index))
+    }
+
+    pub fn pallets_with_errors(&self) -> impl Iterator<Item = &PalletWithErrors> {
+        self.pallets_with_errors.values()
+    }
+
+    pub fn pallet_with_errors_by_name<S>(&self, name: S) -> Result<&PalletWithErrors, MetadataError>
+    where
+        S: ToString,
+    {
+        let name = name.to_string();
+        self.pallets_with_errors
+            .get(&name)
+            .ok_or(MetadataError::PalletNotFound(name))
+    }
+
+    pub fn pallet_with_errors(&self, pallet_index: u8) -> Result<&PalletWithErrors, MetadataError> {
+        self.pallets_with_errors
+            .values()
+            .find(|&pallet| pallet.index == pallet_index)
+            .ok_or(MetadataError::PalletWithErrorsNotFound(pallet_index))
+    }
+
+    pub fn pallets_with_constants(&self) -> impl Iterator<Item = &PalletWithConstants> {
+        self.pallets_with_constants.values()
+    }
+
+    pub fn pallet_with_constants_by_name<S>(
+        &self,
+        name: S,
+    ) -> Result<&PalletWithConstants, MetadataError>
+    where
+        S: ToString,
+    {
+        let name = name.to_string();
+        self.pallets_with_constants
+            .get(&name)
+            .ok_or(MetadataError::PalletNotFound(name))
+    }
+
+    pub fn pallet_with_constants(
+        &self,
+        pallet_index: u8,
+    ) -> Result<&PalletWithConstants, MetadataError> {
+        self.pallets_with_constants
+            .values()
+            .find(|&pallet| pallet.index == pallet_index)
+            .ok_or(MetadataError::PalletWithConstantsNotFound(pallet_index))
     }
 
     pub fn print_overview(&self) {
         let mut string = String::new();
-        for (name, module) in &self.modules {
+        for (name, pallet) in &self.pallets {
             string.push_str(name.as_str());
             string.push('\n');
-            for storage in module.storage.keys() {
+            for storage in pallet.storage.keys() {
                 string.push_str(" s  ");
                 string.push_str(storage.as_str());
                 string.push('\n');
             }
-            if let Some(module) = self.modules_with_calls.get(name) {
-                for call in module.calls.keys() {
+            if let Some(pallet) = self.pallets_with_calls.get(name) {
+                for call in pallet.calls.keys() {
                     string.push_str(" c  ");
                     string.push_str(call.as_str());
                     string.push('\n');
                 }
             }
-            if let Some(module) = self.modules_with_events.get(name) {
-                for event in module.events.values() {
+            if let Some(pallet) = self.pallets_with_events.get(name) {
+                for event in pallet.events.values() {
                     string.push_str(" e  ");
                     string.push_str(event.name.as_str());
                     string.push('\n');
                 }
             }
-            if let Some(module) = self.modules_with_constants.get(name) {
-                for constant in module.constants.values() {
+            if let Some(pallet) = self.pallets_with_constants.get(name) {
+                for constant in pallet.constants.values() {
                     string.push_str(" cst  ");
                     string.push_str(constant.name.as_str());
                     string.push('\n');
                 }
             }
-            if let Some(module) = self.modules_with_errors.get(name) {
-                for error in module.errors.values() {
+            if let Some(pallet) = self.pallets_with_errors.get(name) {
+                for error in pallet.errors.values() {
                     string.push_str(" err  ");
                     string.push_str(error.as_str());
                     string.push('\n');
@@ -208,26 +211,26 @@ impl Metadata {
         String::from_utf8(ser.into_inner()).ok()
     }
 
-    pub fn print_modules_with_calls(&self) {
-        for m in self.modules_with_calls() {
+    pub fn print_pallets_with_calls(&self) {
+        for m in self.pallets_with_calls() {
             m.print()
         }
     }
 
-    pub fn print_modules_with_events(&self) {
-        for m in self.modules_with_events() {
+    pub fn print_pallets_with_events(&self) {
+        for m in self.pallets_with_events() {
             m.print()
         }
     }
 
-    pub fn print_modules_with_constants(&self) {
-        for m in self.modules_with_constants() {
+    pub fn print_pallets_with_constants(&self) {
+        for m in self.pallets_with_constants() {
             m.print()
         }
     }
 
-    pub fn print_modules_with_errors(&self) {
-        for m in self.modules_with_errors() {
+    pub fn print_pallets_with_errors(&self) {
+        for m in self.pallets_with_errors() {
             m.print()
         }
     }
@@ -238,7 +241,7 @@ impl Metadata {
         storage_key_name: &'static str,
     ) -> Result<StorageKey, MetadataError> {
         Ok(self
-            .module(storage_prefix)?
+            .pallet(storage_prefix)?
             .storage(storage_key_name)?
             .get_value()?
             .key())
@@ -251,7 +254,7 @@ impl Metadata {
         map_key: K,
     ) -> Result<StorageKey, MetadataError> {
         Ok(self
-            .module(storage_prefix)?
+            .pallet(storage_prefix)?
             .storage(storage_key_name)?
             .get_map::<K, V>()?
             .key(map_key))
@@ -262,35 +265,21 @@ impl Metadata {
         storage_prefix: &'static str,
         storage_key_name: &'static str,
     ) -> Result<StorageKey, MetadataError> {
-        self.module(storage_prefix)?
+        self.pallet(storage_prefix)?
             .storage(storage_key_name)?
             .get_map_prefix()
-    }
-
-    pub fn storage_double_map_key<K: Encode, Q: Encode, V: Decode + Clone>(
-        &self,
-        storage_prefix: &'static str,
-        storage_key_name: &'static str,
-        first: K,
-        second: Q,
-    ) -> Result<StorageKey, MetadataError> {
-        Ok(self
-            .module(storage_prefix)?
-            .storage(storage_key_name)?
-            .get_double_map::<K, Q, V>()?
-            .key(first, second))
     }
 }
 
 #[derive(Clone, Debug)]
-pub struct ModuleMetadata {
+pub struct PalletMetadata {
     index: u8,
     name: String,
     storage: HashMap<String, StorageMetadata>,
     // constants
 }
 
-impl ModuleMetadata {
+impl PalletMetadata {
     pub fn storage(&self, key: &'static str) -> Result<&StorageMetadata, MetadataError> {
         self.storage
             .get(key)
@@ -300,16 +289,16 @@ impl ModuleMetadata {
 
 // Todo make nice list of Call args to facilitate call arg lookup
 #[derive(Clone, Debug)]
-pub struct ModuleWithCalls {
+pub struct PalletWithCalls {
     pub index: u8,
     pub name: String,
     pub calls: HashMap<String, u8>,
 }
 
-impl ModuleWithCalls {
+impl PalletWithCalls {
     pub fn print(&self) {
         println!(
-            "----------------- Calls for Module: '{}' -----------------\n",
+            "----------------- Calls for Pallet: '{}' -----------------\n",
             self.name
         );
         for (name, index) in &self.calls {
@@ -320,22 +309,22 @@ impl ModuleWithCalls {
 }
 
 #[derive(Clone, Debug)]
-pub struct ModuleWithEvents {
+pub struct PalletWithEvents {
     index: u8,
     name: String,
-    events: HashMap<u8, ModuleEventMetadata>,
+    events: HashMap<u8, PalletEventMetadata>,
 }
 
-impl ModuleWithEvents {
+impl PalletWithEvents {
     pub fn name(&self) -> &str {
         &self.name
     }
 
-    pub fn events(&self) -> impl Iterator<Item = &ModuleEventMetadata> {
+    pub fn events(&self) -> impl Iterator<Item = &PalletEventMetadata> {
         self.events.values()
     }
 
-    pub fn event(&self, index: u8) -> Result<&ModuleEventMetadata, MetadataError> {
+    pub fn event(&self, index: u8) -> Result<&PalletEventMetadata, MetadataError> {
         self.events
             .get(&index)
             .ok_or(MetadataError::EventNotFound(index))
@@ -343,7 +332,7 @@ impl ModuleWithEvents {
 
     pub fn print(&self) {
         println!(
-            "----------------- Events for Module: {} -----------------\n",
+            "----------------- Events for Pallet: {} -----------------\n",
             self.name()
         );
 
@@ -355,13 +344,13 @@ impl ModuleWithEvents {
 }
 
 #[derive(Clone, Debug)]
-pub struct ModuleWithErrors {
+pub struct PalletWithErrors {
     pub index: u8,
     pub name: String,
     pub errors: HashMap<u8, String>,
 }
 
-impl ModuleWithErrors {
+impl PalletWithErrors {
     pub fn name(&self) -> &str {
         &self.name
     }
@@ -374,7 +363,7 @@ impl ModuleWithErrors {
 
     pub fn print(&self) {
         println!(
-            "----------------- Errors for Module: {} -----------------\n",
+            "----------------- Errors for Pallet: {} -----------------\n",
             self.name()
         );
 
@@ -386,25 +375,25 @@ impl ModuleWithErrors {
 }
 
 #[derive(Clone, Debug)]
-pub struct ModuleWithConstants {
+pub struct PalletWithConstants {
     index: u8,
     name: String,
-    constants: HashMap<u8, ModuleConstantMetadata>,
+    constants: HashMap<u8, PalletConstantMetadata>,
 }
 
-impl ModuleWithConstants {
+impl PalletWithConstants {
     pub fn name(&self) -> &str {
         &self.name
     }
 
-    pub fn constants(&self) -> impl Iterator<Item = &ModuleConstantMetadata> {
+    pub fn constants(&self) -> impl Iterator<Item = &PalletConstantMetadata> {
         self.constants.values()
     }
 
     pub fn constant_by_name<S>(
         &self,
         constant_name: S,
-    ) -> Result<&ModuleConstantMetadata, MetadataError>
+    ) -> Result<&PalletConstantMetadata, MetadataError>
     where
         S: ToString,
     {
@@ -417,7 +406,7 @@ impl ModuleWithConstants {
 
     pub fn print(&self) {
         println!(
-            "----------------- Constants for Module: {} -----------------\n",
+            "----------------- Constants for Pallet: {} -----------------\n",
             self.name()
         );
 
@@ -430,64 +419,39 @@ impl ModuleWithConstants {
 
 #[derive(Clone, Debug)]
 pub struct StorageMetadata {
-    module_prefix: String,
+    pallet_prefix: String,
     storage_prefix: String,
     modifier: StorageEntryModifier,
-    ty: StorageEntryType,
+    ty: StorageEntryTypeInternal,
     default: Vec<u8>,
 }
 
+#[derive(Clone, Debug)]
+pub enum StorageEntryTypeInternal {
+    Plain,
+    Map { hashers: Vec<StorageHasher> },
+}
+
 impl StorageMetadata {
-    pub fn get_double_map<K: Encode, Q: Encode, V: Decode + Clone>(
-        &self,
-    ) -> Result<StorageDoubleMap<K, Q, V>, MetadataError> {
-        match &self.ty {
-            StorageEntryType::DoubleMap {
-                hasher,
-                key2_hasher,
-                ..
-            } => {
-                let module_prefix = self.module_prefix.as_bytes().to_vec();
-                let storage_prefix = self.storage_prefix.as_bytes().to_vec();
-                let hasher1 = hasher.to_owned();
-                let hasher2 = key2_hasher.to_owned();
-
-                let default = Decode::decode(&mut &self.default[..])
-                    .map_err(|_| MetadataError::MapValueTypeError)?;
-
-                info!(
-                    "map for '{}' '{}' has hasher1 {:?} hasher2 {:?}",
-                    self.module_prefix, self.storage_prefix, hasher1, hasher2
-                );
-                Ok(StorageDoubleMap {
-                    _marker: PhantomData,
-                    _marker2: PhantomData,
-                    module_prefix,
-                    storage_prefix,
-                    hasher: hasher1,
-                    key2_hasher: hasher2,
-                    default,
-                })
-            }
-            _ => Err(MetadataError::StorageTypeError),
-        }
-    }
     pub fn get_map<K: Encode, V: Decode + Clone>(&self) -> Result<StorageMap<K, V>, MetadataError> {
         match &self.ty {
-            StorageEntryType::Map { hasher, .. } => {
-                let module_prefix = self.module_prefix.as_bytes().to_vec();
+            StorageEntryTypeInternal::Map { hashers } => {
+                let pallet_prefix = self.pallet_prefix.as_bytes().to_vec();
                 let storage_prefix = self.storage_prefix.as_bytes().to_vec();
-                let hasher = hasher.to_owned();
+                let hasher = hashers
+                    .get(0)
+                    .ok_or(MetadataError::StorageTypeError)?
+                    .to_owned();
                 let default = Decode::decode(&mut &self.default[..])
                     .map_err(|_| MetadataError::MapValueTypeError)?;
 
                 info!(
                     "map for '{}' '{}' has hasher {:?}",
-                    self.module_prefix, self.storage_prefix, hasher
+                    self.pallet_prefix, self.storage_prefix, hasher
                 );
                 Ok(StorageMap {
                     _marker: PhantomData,
-                    module_prefix,
+                    pallet_prefix,
                     storage_prefix,
                     hasher,
                     default,
@@ -498,8 +462,8 @@ impl StorageMetadata {
     }
     pub fn get_map_prefix(&self) -> Result<StorageKey, MetadataError> {
         match &self.ty {
-            StorageEntryType::Map { .. } => {
-                let mut bytes = sp_core::twox_128(&self.module_prefix.as_bytes().to_vec()).to_vec();
+            StorageEntryTypeInternal::Map { .. } => {
+                let mut bytes = sp_core::twox_128(&self.pallet_prefix.as_bytes().to_vec()).to_vec();
                 bytes.extend(&sp_core::twox_128(&self.storage_prefix.as_bytes().to_vec())[..]);
                 Ok(StorageKey(bytes))
             }
@@ -509,11 +473,11 @@ impl StorageMetadata {
 
     pub fn get_value(&self) -> Result<StorageValue, MetadataError> {
         match &self.ty {
-            StorageEntryType::Plain { .. } => {
-                let module_prefix = self.module_prefix.as_bytes().to_vec();
+            StorageEntryTypeInternal::Plain => {
+                let pallet_prefix = self.pallet_prefix.as_bytes().to_vec();
                 let storage_prefix = self.storage_prefix.as_bytes().to_vec();
                 Ok(StorageValue {
-                    module_prefix,
+                    pallet_prefix,
                     storage_prefix,
                 })
             }
@@ -524,13 +488,13 @@ impl StorageMetadata {
 
 #[derive(Clone, Debug)]
 pub struct StorageValue {
-    module_prefix: Vec<u8>,
+    pallet_prefix: Vec<u8>,
     storage_prefix: Vec<u8>,
 }
 
 impl StorageValue {
     pub fn key(&self) -> StorageKey {
-        let mut bytes = sp_core::twox_128(&self.module_prefix).to_vec();
+        let mut bytes = sp_core::twox_128(&self.pallet_prefix).to_vec();
         bytes.extend(&sp_core::twox_128(&self.storage_prefix)[..]);
         StorageKey(bytes)
     }
@@ -539,7 +503,7 @@ impl StorageValue {
 #[derive(Clone, Debug)]
 pub struct StorageMap<K, V> {
     _marker: PhantomData<K>,
-    module_prefix: Vec<u8>,
+    pallet_prefix: Vec<u8>,
     storage_prefix: Vec<u8>,
     hasher: StorageHasher,
     default: V,
@@ -547,7 +511,7 @@ pub struct StorageMap<K, V> {
 
 impl<K: Encode, V: Decode + Clone> StorageMap<K, V> {
     pub fn key(&self, key: K) -> StorageKey {
-        let mut bytes = sp_core::twox_128(&self.module_prefix).to_vec();
+        let mut bytes = sp_core::twox_128(&self.pallet_prefix).to_vec();
         bytes.extend(&sp_core::twox_128(&self.storage_prefix)[..]);
         bytes.extend(key_hash(&key, &self.hasher));
         StorageKey(bytes)
@@ -559,38 +523,13 @@ impl<K: Encode, V: Decode + Clone> StorageMap<K, V> {
 }
 
 #[derive(Clone, Debug)]
-pub struct StorageDoubleMap<K, Q, V> {
-    _marker: PhantomData<K>,
-    _marker2: PhantomData<Q>,
-    module_prefix: Vec<u8>,
-    storage_prefix: Vec<u8>,
-    hasher: StorageHasher,
-    key2_hasher: StorageHasher,
-    default: V,
-}
-
-impl<K: Encode, Q: Encode, V: Decode + Clone> StorageDoubleMap<K, Q, V> {
-    pub fn key(&self, key1: K, key2: Q) -> StorageKey {
-        let mut bytes = sp_core::twox_128(&self.module_prefix).to_vec();
-        bytes.extend(&sp_core::twox_128(&self.storage_prefix)[..]);
-        bytes.extend(key_hash(&key1, &self.hasher));
-        bytes.extend(key_hash(&key2, &self.key2_hasher));
-        StorageKey(bytes)
-    }
-
-    pub fn default(&self) -> V {
-        self.default.clone()
-    }
-}
-
-#[derive(Clone, Debug)]
-pub struct ModuleConstantMetadata {
+pub struct PalletConstantMetadata {
     name: String,
     ty: String,
     value: Vec<u8>,
 }
 
-impl ModuleConstantMetadata {
+impl PalletConstantMetadata {
     pub fn get_value(&self) -> Vec<u8> {
         self.value.clone()
     }
@@ -600,12 +539,12 @@ impl ModuleConstantMetadata {
 }
 
 #[derive(Clone, Debug)]
-pub struct ModuleEventMetadata {
+pub struct PalletEventMetadata {
     pub name: String,
     arguments: Vec<EventArg>,
 }
 
-impl ModuleEventMetadata {
+impl PalletEventMetadata {
     pub fn arguments(&self) -> Vec<EventArg> {
         self.arguments.to_vec()
     }
@@ -693,146 +632,145 @@ impl TryFrom<RuntimeMetadataPrefixed> for Metadata {
             return Err(ConversionError::InvalidPrefix.into());
         }
         let meta = match metadata.1 {
-            RuntimeMetadata::V13(meta) => meta,
+            RuntimeMetadata::V14(meta) => meta,
             _ => return Err(ConversionError::InvalidVersion.into()),
         };
-        let mut modules = HashMap::new();
-        let mut modules_with_calls = HashMap::new();
-        let mut modules_with_events = HashMap::new();
-        let mut modules_with_errors = HashMap::new();
-        let mut modules_with_constants = HashMap::new();
+        let mut pallets = HashMap::new();
+        let mut pallets_with_calls = HashMap::new();
+        let mut pallets_with_events = HashMap::new();
+        let mut pallets_with_errors = HashMap::new();
+        let mut pallets_with_constants = HashMap::new();
 
-        for module in convert(meta.modules)?.into_iter() {
-            let module_name = convert(module.name.clone())?;
-
+        for (index, pallet) in meta.pallets.iter().enumerate() {
+            let pallet_name = pallet.name.to_string();
             let mut storage_map = HashMap::new();
-            if let Some(storage) = module.storage {
-                let storage = convert(storage)?;
-                let module_prefix = convert(storage.prefix)?;
-                for entry in convert(storage.entries)?.into_iter() {
-                    let storage_prefix = convert(entry.name.clone())?;
-                    let entry =
-                        convert_entry(module_prefix.clone(), storage_prefix.clone(), entry)?;
-                    storage_map.insert(storage_prefix, entry);
+
+            if let Some(storage) = &pallet.storage {
+                for entry in &storage.entries {
+                    let storage_entry_type = match &entry.ty {
+                        StorageEntryType::Plain(_) => StorageEntryTypeInternal::Plain,
+                        StorageEntryType::Map { hashers, .. } => StorageEntryTypeInternal::Map {
+                            hashers: hashers.clone(),
+                        },
+                    };
+                    let storage_metadata = StorageMetadata {
+                        pallet_prefix: storage.prefix.clone(),
+                        storage_prefix: entry.name.clone(),
+                        modifier: entry.modifier.clone(),
+                        ty: storage_entry_type,
+                        default: entry.default.clone(),
+                    };
+                    storage_map.insert(entry.name.clone(), storage_metadata);
                 }
             }
-            modules.insert(
-                module_name.clone(),
-                ModuleMetadata {
-                    index: module.index,
-                    name: module_name.clone(),
+            pallets.insert(
+                pallet_name.clone(),
+                PalletMetadata {
+                    index: index as u8,
+                    name: pallet.name.to_string(),
                     storage: storage_map,
                 },
             );
 
-            if let Some(calls) = module.calls {
+            if let Some(calls) = &pallet.calls {
                 let mut call_map = HashMap::new();
-                for (index, call) in convert(calls)?.into_iter().enumerate() {
-                    let name = convert(call.name)?;
-                    call_map.insert(name, index as u8);
+                let ty = meta.types.resolve(calls.ty.id()).unwrap();
+                if let scale_info::TypeDef::Variant(variant) = ty.type_def() {
+                    for variant in variant.variants() {
+                        call_map.insert(variant.name().clone(), variant.index());
+                    }
                 }
-                modules_with_calls.insert(
-                    module_name.clone(),
-                    ModuleWithCalls {
-                        index: module.index,
-                        name: module_name.clone(),
+
+                pallets_with_calls.insert(
+                    pallet_name.clone(),
+                    PalletWithCalls {
+                        index: pallet.index,
+                        name: pallet_name.clone(),
                         calls: call_map,
                     },
                 );
             }
-            if let Some(events) = module.event {
-                let mut event_map = HashMap::new();
-                for (index, event) in convert(events)?.into_iter().enumerate() {
-                    event_map.insert(index as u8, convert_event(event)?);
+
+            // TODO: EVENTS
+            // if let Some(event) = &pallet.event {
+            //     let mut event_map = HashMap::new();
+            //     let event_ty = meta.types.resolve(event.ty.id()).unwrap();
+            //     // println!(
+            //     //     "{:#?} {:#?}",
+            //     //     event,
+            //     //     meta.types.resolve(event.ty.id()).unwrap()
+            //     // );
+            //     if let scale_info::TypeDef::Variant(variant) = event_ty.type_def() {
+            //         // for variant in variant.variants() {
+            //         //     for field in variant.fields() {
+            //         //         println!(
+            //         //             "{:#?}",
+            //         //             meta.types.resolve(field.ty().id()).unwrap().type_def()
+            //         //         );
+            //         //     }
+            //         // }
+            //         todo!("Events are crazy");
+            //     }
+
+            //     pallets_with_events.insert(
+            //         pallet_name.clone(),
+            //         PalletWithEvents {
+            //             index: pallet.index,
+            //             name: pallet_name.clone(),
+            //             events: event_map,
+            //         },
+            //     );
+            // }
+
+            if let Some(error) = &pallet.error {
+                let mut error_map = HashMap::new();
+                let error_ty = meta.types.resolve(error.ty.id()).unwrap();
+                if let scale_info::TypeDef::Variant(variant) = error_ty.type_def() {
+                    for variant in variant.variants() {
+                        error_map.insert(variant.index(), variant.name().clone());
+                    }
                 }
-                modules_with_events.insert(
-                    module_name.clone(),
-                    ModuleWithEvents {
-                        index: module.index,
-                        name: module_name.clone(),
-                        events: event_map,
+
+                pallets_with_errors.insert(
+                    pallet_name.clone(),
+                    PalletWithErrors {
+                        index: pallet.index,
+                        name: pallet_name.clone(),
+                        errors: error_map,
                     },
                 );
             }
-            let errors = module.errors;
-            let mut error_map = HashMap::new();
-            for (index, error) in convert(errors)?.into_iter().enumerate() {
-                let name = convert(error.name)?;
-                error_map.insert(index as u8, name);
-            }
-            modules_with_errors.insert(
-                module_name.clone(),
-                ModuleWithErrors {
-                    index: module.index,
-                    name: module_name.clone(),
-                    errors: error_map,
-                },
-            );
-            let constants = module.constants;
+
             let mut constant_map = HashMap::new();
-            for (index, constant) in convert(constants)?.into_iter().enumerate() {
-                constant_map.insert(index as u8, convert_constant(constant)?);
+            for (index, constant) in pallet.constants.iter().enumerate() {
+                let const_ty = meta.types.resolve(constant.ty.id()).unwrap();
+                constant_map.insert(
+                    index as u8,
+                    PalletConstantMetadata {
+                        name: constant.name.to_string(),
+                        ty: format!("{:?}", const_ty), // very hacky!
+                        value: constant.value.clone(),
+                    },
+                );
             }
-            modules_with_constants.insert(
-                module_name.clone(),
-                ModuleWithConstants {
-                    index: module.index,
-                    name: module_name.clone(),
+            pallets_with_constants.insert(
+                pallet_name.clone(),
+                PalletWithConstants {
+                    index: pallet.index,
+                    name: pallet_name.clone(),
                     constants: constant_map,
                 },
             );
         }
+
         Ok(Metadata {
-            modules,
-            modules_with_calls,
-            modules_with_events,
-            modules_with_errors,
-            modules_with_constants,
+            pallets: pallets,
+            pallets_with_calls: pallets_with_calls,
+            pallets_with_events: pallets_with_events,
+            pallets_with_errors: pallets_with_errors,
+            pallets_with_constants: pallets_with_constants,
         })
     }
-}
-
-fn convert<B: 'static, O: 'static>(dd: DecodeDifferent<B, O>) -> Result<O, ConversionError> {
-    match dd {
-        DecodeDifferent::Decoded(value) => Ok(value),
-        _ => Err(ConversionError::ExpectedDecoded),
-    }
-}
-
-fn convert_event(
-    event: metadata::v13::EventMetadata,
-) -> Result<ModuleEventMetadata, ConversionError> {
-    let name = convert(event.name)?;
-    let mut arguments = Vec::new();
-    for arg in convert(event.arguments)? {
-        let arg = arg.parse::<EventArg>()?;
-        arguments.push(arg);
-    }
-    Ok(ModuleEventMetadata { name, arguments })
-}
-
-fn convert_constant(
-    constant: metadata::v13::ModuleConstantMetadata,
-) -> Result<ModuleConstantMetadata, ConversionError> {
-    let name = convert(constant.name)?;
-    let value = convert(constant.value)?;
-    let ty = convert(constant.ty)?;
-    Ok(ModuleConstantMetadata { name, ty, value })
-}
-
-fn convert_entry(
-    module_prefix: String,
-    storage_prefix: String,
-    entry: metadata::v13::StorageEntryMetadata,
-) -> Result<StorageMetadata, ConversionError> {
-    let default = convert(entry.default)?;
-    Ok(StorageMetadata {
-        module_prefix,
-        storage_prefix,
-        modifier: entry.modifier,
-        ty: entry.ty,
-        default,
-    })
 }
 
 /// generates the key's hash depending on the StorageHasher selected

@@ -15,7 +15,7 @@
 
 //! This example shows how to decode a runtime value that is a custom struct.
 //!
-//! *Note*: The runtime module here is not in the generic substrate node. Hence, this example
+//! *Note*: The runtime pallet here is not in the generic substrate node. Hence, this example
 //! must run against the customized node found in `https://github.com/scs/substrate-test-nodes`.
 //!
 
@@ -45,7 +45,7 @@ fn main() {
     let api = Api::new(format!("ws://{}", url)).set_signer(from.clone());
 
     let xt: UncheckedExtrinsicV4<_> =
-        compose_extrinsic!(api.clone(), "KittyModule", "create_kitty", 10 as u128);
+        compose_extrinsic!(api.clone(), "KittyPallet", "create_kitty", 10 as u128);
 
     println!("[+] Composed extrinsic to create Kitty:\n\n {:?}", xt);
 

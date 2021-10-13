@@ -22,7 +22,7 @@ use log::{debug, error};
 use sp_core::sr25519;
 use sp_core::H256 as Hash;
 
-// This module depends on node_runtime.
+// This pallet depends on node_runtime.
 // To avoid dependency collisions, node_runtime has been removed from the substrate-api-client library.
 // Replace this crate by your own if you run a custom substrate node to get your custom events.
 use node_template_runtime::Event;
@@ -67,7 +67,7 @@ fn main() {
                                 }
                             }
                         }
-                        _ => debug!("ignoring unsupported module event: {:?}", evr.event),
+                        _ => debug!("ignoring unsupported pallet event: {:?}", evr.event),
                     }
                 }
             }

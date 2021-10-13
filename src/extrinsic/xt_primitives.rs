@@ -35,7 +35,7 @@ pub type GenericAddress = sp_runtime::MultiAddress<AccountId, ()>;
 /// Simple generic extra mirroring the SignedExtra currently used in extrinsics. Does not implement
 /// the SignedExtension trait. It simply encodes to the same bytes as the real SignedExtra. The
 /// Order is (CheckVersion, CheckGenesis, Check::Era, CheckNonce, CheckWeight, transactionPayment::ChargeTransactionPayment).
-/// This can be locked up in the System module. Fields that are merely PhantomData are not encoded and are
+/// This can be locked up in the System pallet. Fields that are merely PhantomData are not encoded and are
 /// therefore omitted here.
 #[cfg_attr(feature = "std", derive(Debug))]
 #[derive(Decode, Encode, Clone, Eq, PartialEq)]

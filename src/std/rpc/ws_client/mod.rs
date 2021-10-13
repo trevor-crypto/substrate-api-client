@@ -95,18 +95,18 @@ where
 
     pub fn wait_for_event<E: Decode>(
         &self,
-        module: &str,
+        pallet: &str,
         variant: &str,
         decoder: Option<EventsDecoder>,
         receiver: &Receiver<String>,
     ) -> ApiResult<E> {
-        let raw = self.wait_for_raw_event(module, variant, decoder, receiver)?;
+        let raw = self.wait_for_raw_event(pallet, variant, decoder, receiver)?;
         E::decode(&mut &raw.data[..]).map_err(|e| e.into())
     }
 
     pub fn wait_for_raw_event(
         &self,
-        module: &str,
+        pallet: &str,
         variant: &str,
         decoder: Option<EventsDecoder>,
         receiver: &Receiver<String>,
@@ -126,16 +126,16 @@ where
                         info!("Decoded Event: {:?}, {:?}", phase, event);
                         match event {
                             RuntimeEvent::Raw(raw)
-                                if raw.module == module && raw.variant == variant =>
+                                if raw.pallet == pallet && raw.variant == variant =>
                             {
                                 return Ok(raw);
                             }
-                            _ => debug!("ignoring unsupported module event: {:?}", event),
+                            _ => debug!("ignoring unsupported pallet event: {:?}", event),
                         }
                     }
                 }
                 Err(error) => match error {
-                    EventsError::ModuleError(ref msg) => {
+                    EventsError::PalletError(ref msg) => {
                         error!("Extrinsic Failed: {}", msg);
                         return Err(ApiClientError::Events(error));
                     }

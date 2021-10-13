@@ -14,7 +14,7 @@
 */
 
 //! This examples shows how to use the compose_extrinsic macro to create an extrinsic for any (custom)
-//! module, whereas the desired module and call are supplied as a string.
+//! pallet, whereas the desired pallet and call are supplied as a string.
 
 use clap::{load_yaml, App};
 use keyring::AccountKeyring;

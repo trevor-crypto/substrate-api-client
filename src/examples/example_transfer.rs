@@ -13,7 +13,7 @@
     limitations under the License.
 */
 
-///! Very simple example that shows how to use a predefined extrinsic from the extrinsic module
+///! Very simple example that shows how to use a predefined extrinsic from the extrinsic pallet
 use clap::{load_yaml, App};
 use keyring::AccountKeyring;
 use sp_core::crypto::Pair;

@@ -38,10 +38,10 @@ fn main() {
     let meta = Metadata::try_from(api.get_metadata().unwrap()).unwrap();
 
     meta.print_overview();
-    meta.print_modules_with_calls();
-    meta.print_modules_with_events();
-    meta.print_modules_with_errors();
-    meta.print_modules_with_constants();
+    meta.print_pallets_with_calls();
+    meta.print_pallets_with_events();
+    meta.print_pallets_with_errors();
+    meta.print_pallets_with_constants();
 
     // print full substrate metadata json formatted
     println!(

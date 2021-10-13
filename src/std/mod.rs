@@ -253,24 +253,6 @@ where
             .map_err(|e| e.into())
     }
 
-    pub fn get_storage_double_map<K: Encode, Q: Encode, V: Decode + Clone>(
-        &self,
-        storage_prefix: &'static str,
-        storage_key_name: &'static str,
-        first: K,
-        second: Q,
-        at_block: Option<Hash>,
-    ) -> ApiResult<Option<V>> {
-        let storagekey = self.metadata.storage_double_map_key::<K, Q, V>(
-            storage_prefix,
-            storage_key_name,
-            first,
-            second,
-        )?;
-        info!("storage key is: 0x{}", hex::encode(storagekey.0.clone()));
-        self.get_storage_by_key_hash(storagekey, at_block)
-    }
-
     pub fn get_storage_by_key_hash<V: Decode>(
         &self,
         key: StorageKey,
@@ -324,24 +306,6 @@ where
         self.get_storage_proof_by_keys(vec![storagekey], at_block)
     }
 
-    pub fn get_storage_double_map_proof<K: Encode, Q: Encode, V: Decode + Clone>(
-        &self,
-        storage_prefix: &'static str,
-        storage_key_name: &'static str,
-        first: K,
-        second: Q,
-        at_block: Option<Hash>,
-    ) -> ApiResult<Option<rpc::ReadProof<Hash>>> {
-        let storagekey = self.metadata.storage_double_map_key::<K, Q, V>(
-            storage_prefix,
-            storage_key_name,
-            first,
-            second,
-        )?;
-        info!("storage key is: 0x{}", hex::encode(storagekey.0.clone()));
-        self.get_storage_proof_by_keys(vec![storagekey], at_block)
-    }
-
     pub fn get_storage_proof_by_keys(
         &self,
         keys: Vec<StorageKey>,
@@ -385,8 +349,8 @@ where
         }
     }
     pub fn get_existential_deposit(&self) -> ApiResult<Balance> {
-        let module = self.metadata.module_with_constants_by_name("Balances")?;
-        let constant_metadata = module.constant_by_name("ExistentialDeposit")?;
+        let pallet = self.metadata.pallet_with_constants_by_name("Balances")?;
+        let constant_metadata = pallet.constant_by_name("ExistentialDeposit")?;
         Decode::decode(&mut constant_metadata.get_value().as_slice()).map_err(|e| e.into())
     }
 
